@@ -1,8 +1,9 @@
-import PaymentModal from "./PaymentModal";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
+import { FiClock, FiUsers, FiExternalLink, FiCalendar, FiTag, FiUser } from "react-icons/fi";
+import PaymentModal from "./PaymentModal";
 import dummyPic from "../assets/pg1.jpg";
+import "./ProjectComponent.css";
 
 function ProjectComponent(props) {
   const [modalShow, setModalShow] = useState(false);
@@ -23,22 +24,30 @@ function ProjectComponent(props) {
   });
   const [timerString, setTimerString] = useState("");
   const [isOver, setIsOver] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
   const { index } = location.state;
   const PRECISION = 10 ** 18;
 
-  // func to update the progress bar everytime getProjectDetails() executes.
-  function updateProgressBar() {
-    let progressBar = document.getElementsByClassName("progressBar")[0];
-    progressBar.max = projectDetails.fundingGoal / PRECISION;
-    progressBar.value = projectDetails.amountRaised / PRECISION;
-  }
+  // Calculate funding progress percentage
+  const calculateProgress = () => {
+    return Math.min(
+      Math.round((projectDetails.amountRaised / projectDetails.fundingGoal) * 100),
+      100
+    );
+  };
 
-  // fetch the project details from the smart contract
+  // Format currency amounts
+  const formatAmount = (amount) => {
+    return (amount / PRECISION).toFixed(2);
+  };
+
+  // Fetch the project details from the smart contract
   async function getProjectDetails() {
+    setIsLoading(true);
     try {
-      // fetching project information from the contract
-      let res = await props.contract.getProject(parseInt(index)).then((res) => {
+      // Fetching project information from the contract
+      await props.contract.getProject(parseInt(index)).then((res) => {
         let {
           amountRaised,
           cid,
@@ -67,7 +76,7 @@ function ProjectComponent(props) {
           });
         }
 
-        tmp.sort((a, b) => {return (b.amount - a.amount)});
+        tmp.sort((a, b) => (b.amount - a.amount));
         
         let contributorsCopy = [];
         let amountCopy = [];
@@ -79,27 +88,28 @@ function ProjectComponent(props) {
         }
 
         setProjectDetails({
-          amountRaised: amountRaised,
-          cid: cid,
-          creatorName: creatorName,
-          fundingGoal: fundingGoal,
-          projectDescription: projectDescription,
-          projectName: projectName,
+          amountRaised,
+          cid,
+          creatorName,
+          fundingGoal,
+          projectDescription,
+          projectName,
           contributors: contributorsCopy,
           creationTime: creationTime * 1,
-          duration: duration,
-          projectLink: projectLink,
+          duration,
+          projectLink,
           amount: amountCopy,
-          creatorAddress: creatorAddress,
-          refundPolicy: refundPolicy,
-          category: category,
+          creatorAddress,
+          refundPolicy,
+          category,
           refundClaimed: refundClaimedCopy,
-          claimedAmount: claimedAmount,
+          claimedAmount,
         });
+        setIsLoading(false);
       });
     } catch (error) {
-      alert("Error fetching details");
-      console.log(error);
+      console.error("Error fetching project details:", error);
+      setIsLoading(false);
     }
   }
 
@@ -111,7 +121,7 @@ function ProjectComponent(props) {
     getProjectDetails();
   }, [modalShow]);
 
-  // useEffect hook to handle the countdown timer
+  // UseEffect hook to handle the countdown timer
   useEffect(() => {
     const interval = setInterval(() => {
       const currentTime = new Date().getTime() / 1000;
@@ -129,7 +139,7 @@ function ProjectComponent(props) {
       if (remainingTime < 0) {
         setTimerString("0d 0h 0m 0s");
         clearInterval(interval);
-        // this condition is set because at initial render, creationTime and duration state are not set
+        // This condition is set because at initial render, creationTime and duration state are not set
         // so remaining time turns out to be negative
         if (projectDetails.creationTime > 0) {
           setIsOver(true);
@@ -144,292 +154,260 @@ function ProjectComponent(props) {
     };
   }, [projectDetails.creationTime, projectDetails.duration]);
 
-  useEffect(() => {
-    updateProgressBar();
-  }, [projectDetails]);
-
-  // sets the condition true for payment modal to render 
+  // Sets the condition true for payment modal to render 
   function onClickPayment() {
     setModalShow(true);
   }
 
-  // return category code
+  // Return category code
   function getCategoryFromCode(val) {
     let categoryCode = ["Design & Tech", "Film", "Arts", "Games"];
-    if (val >= 0 && val < 4) return categoryCode[val];
+    return (val >= 0 && val < 4) ? categoryCode[val] : "Other";
   }
 
-  // convert epoch time format to dd/mm/yyyy format
+  // Convert epoch time format to dd/mm/yyyy format
   function displayDate(val) {
     let date = new Date(val * 1000);
+    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  }
+
+  // Check if user is the project owner
+  function isOwner() {
+    return (props.userAddress === projectDetails.creatorAddress);
+  }
+
+  // Check if claiming fund is possible for the project owner
+  function claimFundCheck() {
+    return (projectDetails.refundPolicy ? 
+      (projectDetails.amountRaised / PRECISION) : 
+      (projectDetails.amountRaised >= projectDetails.fundingGoal));
+  }
+
+  // Claim fund by calling function in the smart contract
+  async function claimFund() {
+    try {
+      let txn = await props.contract.claimFund(parseInt(index));
+      await txn.wait(txn);
+      alert('Funds successfully claimed');
+
+      setProjectDetails({
+        ...projectDetails,
+        claimedAmount: true
+      });
+    } catch(error) {
+      alert('Error claiming fund: ' + error.message);
+      console.error(error);
+    }    
+  }
+
+  // Check if the user is a contributor to the project
+  function checkIfContributor() {
+    let idx = getContributorIndex();
+    return (idx < 0) ? false : true;
+  }
+
+  // Get the contributor index of the user in the contributor[]
+  function getContributorIndex() {
+    return projectDetails.contributors.indexOf(props.userAddress);
+  }
+
+  // Check if claiming refund is possible for the user
+  function claimRefundCheck() {
+    return (projectDetails.refundPolicy ? 
+      false : 
+      (projectDetails.amountRaised < projectDetails.fundingGoal));
+  }
+
+  // Claim refund by calling the function in the smart contract
+  async function claimRefund() {
+    try {
+      let txn = await props.contract.claimRefund(parseInt(index));
+      await txn.wait(txn);
+      alert('Refund claimed successfully');
+      
+      let refundClaimedCopy = [...projectDetails.refundClaimed];
+      refundClaimedCopy[getContributorIndex()] = true;
+
+      setProjectDetails({
+        ...projectDetails,
+        refundClaimed: refundClaimedCopy
+      });
+    } catch(error) {
+      alert('Error claiming refund: ' + error.message);
+      console.error(error);
+    }
+  }
+
+  // Truncate address for display
+  const truncateAddress = (address) => {
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
+  if (isLoading) {
     return (
-      date.getDate() + "/" + (date.getMonth() + 1) + "/" + date.getFullYear()
+      <div className="project-loading">
+        <div className="loader"></div>
+        <p>Loading project details...</p>
+      </div>
     );
   }
 
-
-  // check if user is the project owner
-  function isOwner() {
-      return (props.userAddress === projectDetails.creatorAddress);
-  }
-
-  // check if claiming fund is possible for the project owner
-  function claimFundCheck() {
-    return (projectDetails.refundPolicy ? (projectDetails.amountRaised / PRECISION) : (projectDetails.amountRaised >= projectDetails.fundingGoal));
-  }
-
-
-  // claim fund by calling function in the smart contract
-  async function claimFund() {
-      let txn;
-      try {
-        txn = await props.contract.claimFund(parseInt(index));
-        await txn.wait(txn);
-        alert('Fund succesfully claimed');
-
-        setProjectDetails({
-            amountRaised: projectDetails.amountRaised,
-            cid: projectDetails.cid,
-            creatorName: projectDetails.creatorName,
-            fundingGoal: projectDetails.fundingGoal,
-            projectDescription: projectDetails.projectDescription,
-            projectName: projectDetails.projectName,
-            contributors: projectDetails.contributors,
-            creationTime: projectDetails.creationTime * 1,
-            duration: projectDetails.duration,
-            projectLink: projectDetails.projectLink,
-            amount: projectDetails.amount,
-            creatorAddress: projectDetails.creatorAddress,
-            refundPolicy: projectDetails.refundPolicy,
-            category: projectDetails.category,
-            refundClaimed: projectDetails.refundClaimed,
-            claimedAmount: true
-          });
-
-      }catch(error) {
-        alert('Error claiming fund: ' + error);
-        console.log(error);
-      }    
-  }
-
-  // check if the user is a contributor to the project
-  function checkIfContributor() {
-      let idx = getContributorIndex();
-      return ((idx < 0) ? false : true);
-  }
-
-  // get the contributor index of the user in the contributor[]
-  function getContributorIndex() {
-      let idx = projectDetails.contributors.indexOf(props.userAddress);
-      return idx;
-  }
-
-  // check if claiming refund is possible for the user
-  function claimRefundCheck() {
-      return (projectDetails.refundPolicy ? false : (projectDetails.amountRaised < projectDetails.fundingGoal));
-  }
-
-  // claim refund by calling the function in the smart contract
-  async function claimRefund() {
-      let txn;
-      try {
-        txn = await props.contract.claimRefund(parseInt(index));
-        await txn.wait(txn);
-        alert('Refund claimed succesfully');
-        let refundClaimedCopy = [...projectDetails.refundClaimed];
-        refundClaimedCopy[getContributorIndex()] = true;
-
-        setProjectDetails({
-            amountRaised: projectDetails.amountRaised,
-            cid: projectDetails.cid,
-            creatorName: projectDetails.creatorName,
-            fundingGoal: projectDetails.fundingGoal,
-            projectDescription: projectDetails.projectDescription,
-            projectName: projectDetails.projectName,
-            contributors: projectDetails.contributors,
-            creationTime: projectDetails.creationTime * 1,
-            duration: projectDetails.duration,
-            projectLink: projectDetails.projectLink,
-            amount: projectDetails.amount,
-            creatorAddress: projectDetails.creatorAddress,
-            refundPolicy: projectDetails.refundPolicy,
-            category: projectDetails.category,
-            refundClaimed: refundClaimedCopy,
-            claimedAmount: true
-          });
-
-      }catch(error) {
-          alert('Error claiming refund: ' + error);
-          console.log(error);
-      }
-  }
-
   return (
-    <>
-      <div className="projectContainer">
-        <div className="projectHeading">
-          <h1>{projectDetails.projectName}</h1>
-        </div>
-        <div className="projectTopContainer">
-          <div className="projectImage">
-            <img
-              src={
-                projectDetails.cid ? "https://" + projectDetails.cid : dummyPic
-              }
-              alt="test-pic"
-            />
-          </div>
-          <div className="projectInformationContainer">
-            <div className="progressBarContainer">
-              <progress
-                min="0"
-                max="100"
-                value="30"
-                className="progressBar"
-              ></progress>
-            </div>
-            <div className="fundingValue">
-              <h2>{projectDetails.amountRaised / PRECISION} AVAX</h2>
-            </div>
-            <p className="goalValueContainer">
-              pledged of{" "}
-              <span className="goalValue">
-                {projectDetails.fundingGoal / PRECISION} AVAX
-              </span>{" "}
-              goal
-            </p>
-            <div className="supporterContainer">
-              <h2>{projectDetails.contributors.length}</h2>
-            </div>
-            <p className="afterSupporterContainer">backers</p>
-            <div className="remainingDaysContainer">
-              <h2>{!isOver ? timerString : "Funding duration over!!"}</h2>
-            </div>
-            {!isOver && (
-              <p className="afterRemainingDaysContainer">
-                time left for funding
-              </p>
-            )}
-            {!isOver ? (!isOwner() && (
-              <div className="supportButtonContainer">
-                <button
-                  className="supportButton"
-                  onClick={() => onClickPayment()}
-                >
-                  Back this project
-                </button>
-              </div>
-            )) : isOwner() ? ((claimFundCheck() && !projectDetails.claimedAmount) ? (
-              <div className="supportButtonContainer">
-                <button
-                  className="supportButton"
-                  onClick={() => claimFund()}
-                >
-                  Claim Fund
-                </button>
-              </div>
-            ) : (projectDetails.claimedAmount ? (<h2 style={ { color: 'red' } }>Fund claimed!</h2>) : '')) : (
-                (checkIfContributor() && claimRefundCheck() && !projectDetails.refundClaimed[getContributorIndex()]) ?
-                (<div className="supportButtonContainer">
-                <button
-                  className="supportButton"
-                  onClick={() => claimRefund()}
-                >
-                  Claim Refund
-                </button>
-              </div>
-            ) : (projectDetails.refundClaimed[getContributorIndex()] ? (<h2 style={{ color: 'red' }}>Refund Claimed!</h2>) : ''))}
-            {modalShow && (
-              <PaymentModal
-                setModalShow={setModalShow}
-                contract={props.contract}
-                index={index}
-                projectDetails={projectDetails}
-                setProjectDetails={setProjectDetails}
-                userAddress={props.userAddress}
-              />
-            )}
-          </div>
-        </div>
-        <div className="projectBottomContainer">
-          <div className="aboutContainer">
-            <h1 className="about">About</h1>
-            <p className="description">{projectDetails.projectDescription}</p>
-          </div>
-          <div className="projectLinkContainerWrapper">
-            <div className="projectLinkContainer">
-              <p className="projectLinkLabel">
-                Refund Policy:{" "}
-                {projectDetails.refundPolicy ? "Non-Refundable " : "Refundable"}
-              </p>
-            </div>
-            <div className="projectLinkContainer">
-              <p className="projectLinkLabel">
-                Project link:
-                <a
-                  className="projectLink"
-                  target="_blank"
-                  href={projectDetails.projectLink}
-                >
-                  {projectDetails.projectLink}
-                </a>
-              </p>
-            </div>
-            <div className="projectLinkContainer">
-              <p className="projectLinkLabel">
-                Owner:
-                <Link
-                  className="projectLinkLabel"
-                  to="/profile"
-                  state={{
-                    address: projectDetails.creatorAddress,
-                    name: projectDetails.creatorName,
-                  }}
-                >
-                  {" " + projectDetails.creatorName}
-                </Link>
-              </p>
-            </div>
-            <div className="projectLinkContainer">
-              <p className="projectLinkLabel">
-                Category: {getCategoryFromCode(projectDetails.category)}
-              </p>
-            </div>
-            <div className="projectLinkContainer">
-              <p className="projectLinkLabel">
-                Creation date: {displayDate(projectDetails.creationTime)}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="contributorHeader">Contributors</div>
-        <div className="contributors">
-          <div className="tableRow header">
-            <div className="item border" style={{width: "80px"}}>Sno.</div>
-            <div className="item border">Address</div>
-            <div className="item border">Amount</div>
-          </div>
-          {projectDetails.contributors.length > 0 ? (
-            projectDetails.contributors.map((contributor, idx) => (
-              <div
-                className={
-                  "tableRow " + (idx % 2 === 0 ? "darkRow" : "lightRow")
-                }
-                key={idx}
-              >
-                <div className="item border" style={{width: "80px"}}>{idx + 1 + "."}</div>
-                <div className="item border">{contributor}</div>
-                <div className="item border">
-                  {projectDetails.amount[idx] / PRECISION}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="noProjects">No contributors yet</div>
-          )}
+    <div className="project-container">
+      <div className="project-header">
+        <h1>{projectDetails.projectName}</h1>
+        <div className="project-category">
+          <FiTag className="icon" />
+          <span>{getCategoryFromCode(projectDetails.category)}</span>
         </div>
       </div>
-    </>
+
+      <div className="project-content">
+        <div className="project-main">
+          <div className="project-image-container">
+            <img
+              src={projectDetails.cid ? "https://" + projectDetails.cid : dummyPic}
+              alt={projectDetails.projectName}
+              className="project-image"
+            />
+          </div>
+
+          <div className="project-description-section">
+            <h2>About This Project</h2>
+            <p>{projectDetails.projectDescription}</p>
+            
+            <div className="project-meta">
+              <div className="meta-item">
+                <FiExternalLink className="icon" />
+                <span>Project Link: </span>
+                <a href={projectDetails.projectLink} target="_blank" rel="noopener noreferrer">
+                  {projectDetails.projectLink}
+                </a>
+              </div>
+              
+              <div className="meta-item">
+                <FiUser className="icon" />
+                <span>Creator: </span>
+                <Link to="/profile" state={{ address: projectDetails.creatorAddress, name: projectDetails.creatorName }}>
+                  {projectDetails.creatorName}
+                </Link>
+              </div>
+              
+              <div className="meta-item">
+                <FiCalendar className="icon" />
+                <span>Created on: </span>
+                {displayDate(projectDetails.creationTime)}
+              </div>
+
+              <div className="meta-item">
+                <span>Refund Policy: </span>
+                <span className={`refund-policy ${projectDetails.refundPolicy ? 'non-refundable' : 'refundable'}`}>
+                  {projectDetails.refundPolicy ? "Non-Refundable" : "Refundable"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="project-sidebar">
+          <div className="funding-status">
+            <div className="progress-container">
+              <div className="progress-bar" style={{ width: `${calculateProgress()}%` }}></div>
+              <div className="progress-text">{calculateProgress()}% funded</div>
+            </div>
+
+            <div className="funding-details">
+              <div className="funding-amount">
+                <h2>{formatAmount(projectDetails.amountRaised)} AVAX</h2>
+                <p>pledged of {formatAmount(projectDetails.fundingGoal)} AVAX goal</p>
+              </div>
+
+              <div className="funding-stat">
+                <div className="stat-value">
+                  <FiUsers className="icon" />
+                  <h3>{projectDetails.contributors.length}</h3>
+                </div>
+                <p>backers</p>
+              </div>
+
+              <div className="funding-stat">
+                <div className="stat-value">
+                  <FiClock className="icon" />
+                  <h3>{!isOver ? timerString : "Funding Complete"}</h3>
+                </div>
+                {!isOver && <p>remaining</p>}
+              </div>
+            </div>
+
+            {!isOver ? (
+              !isOwner() && (
+                <button className="support-button" onClick={() => onClickPayment()}>
+                  Back this project
+                </button>
+              )
+            ) : isOwner() ? (
+              (claimFundCheck() && !projectDetails.claimedAmount) ? (
+                <button className="claim-button" onClick={() => claimFund()}>
+                  Claim Funds
+                </button>
+              ) : (
+                projectDetails.claimedAmount && (
+                  <div className="claimed-notice">Funds claimed</div>
+                )
+              )
+            ) : (
+              (checkIfContributor() && claimRefundCheck() && !projectDetails.refundClaimed[getContributorIndex()]) ? (
+                <button className="refund-button" onClick={() => claimRefund()}>
+                  Claim Refund
+                </button>
+              ) : (
+                projectDetails.refundClaimed[getContributorIndex()] && (
+                  <div className="claimed-notice">Refund Claimed</div>
+                )
+              )
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="contributors-section">
+        <h2>Contributors</h2>
+        {projectDetails.contributors.length > 0 ? (
+          <div className="contributors-table">
+            <div className="table-header">
+              <div className="table-cell rank">Rank</div>
+              <div className="table-cell address">Address</div>
+              <div className="table-cell amount">Contribution</div>
+            </div>
+            <div className="table-body">
+              {projectDetails.contributors.map((contributor, idx) => (
+                <div className="table-row" key={idx}>
+                  <div className="table-cell rank">{idx + 1}</div>
+                  <div className="table-cell address">
+                    <span className="full-address">{contributor}</span>
+                    <span className="truncated-address">{truncateAddress(contributor)}</span>
+                  </div>
+                  <div className="table-cell amount">{formatAmount(projectDetails.amount[idx])} AVAX</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="no-contributors">No contributors yet</div>
+        )}
+      </div>
+
+      {modalShow && (
+        <PaymentModal
+          setModalShow={setModalShow}
+          contract={props.contract}
+          index={index}
+          projectDetails={projectDetails}
+          setProjectDetails={setProjectDetails}
+          userAddress={props.userAddress}
+        />
+      )}
+    </div>
   );
 }
 
