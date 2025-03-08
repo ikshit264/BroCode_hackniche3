@@ -13,6 +13,19 @@ export default function HomeComponent(props) {
   });
   const [featuredRcmd, setFeaturedRcmd] = useState([]);
   const [recentUploads, setRecentUploads] = useState([]);
+  const [currentFeaturedIndex, setCurrentFeaturedIndex] = useState(0);
+  
+  const MAX_TITLE_LENGTH = 35;
+  const MAX_DESC_LENGTH = 180;
+  const MAX_AUTHOR_LENGTH = 40;
+  
+  const truncateText = (text, maxLength) => {
+    if (!text) return '';
+    return text.length > maxLength 
+      ? text.substring(0, maxLength) + '...' 
+      : text;
+  };
+  
   const getAllProjects = async () => {
     try {
       let res = await props.contract.getAllProjectsDetail().then((res) => {
@@ -29,6 +42,11 @@ export default function HomeComponent(props) {
             projectName,
             totalContributors,
           } = { ...res[index] };
+          
+          projectName = truncateText(projectName, MAX_TITLE_LENGTH);
+          projectDescription = truncateText(projectDescription, MAX_DESC_LENGTH);
+          creatorName = truncateText(creatorName, MAX_AUTHOR_LENGTH);
+          
           tmp.push({
             amountRaised,
             cid,
@@ -38,6 +56,7 @@ export default function HomeComponent(props) {
             projectName,
             totalContributors,
             index,
+            imageUrl: cid ? `https://${cid}` : dummyPic
           });
           amount += Number(amountRaised / PRECISION);
           contrib += Number(totalContributors);
@@ -49,9 +68,7 @@ export default function HomeComponent(props) {
         });
         return tmp;
       });
-      res.sort((a, b) => {
-        return b.totalContributors * 1 - a.totalContributors * 1;
-      });
+      res.sort((a, b) => b.totalContributors - a.totalContributors);
       setFeaturedRcmd(res.slice(0, 4));
       setRecentUploads(res.slice(4, 24));
     } catch (err) {
@@ -61,34 +78,45 @@ export default function HomeComponent(props) {
   };
 
   const renderRecommendations = (val) => {
-    return val.map((project, index) => {
-      return (
-        <div className="recommendationCard" key={index}>
-          <Link to="/project" state={{ index: project.index }}>
-            <div
-              className="rcmdCardImg"
-              style={{
-                backgroundImage: project.cid
-                  ? `url(${"https://" + project.cid})`
-                  : dummyPic,
-              }}
-            ></div>
-          </Link>
-          <div className="rcmdCardDetails">
-            <div className="rcmdCardHeading">
-              <Link to="/project" state={{ index: project.index }}>
-                {project.projectName}
-              </Link>
-            </div>
-            <div className="rcmdCardFundedPercentage">
-              {((project.amountRaised / project.fundingGoal) * 100).toFixed(2) +
-                "% Funded"}
-            </div>
-            <div className="rcmdCardAuthor">{"By " + project.creatorName}</div>
+    return val.map((project, index) => (
+      <div className="recommendationCard" key={index}>
+        <Link to="/project" state={{ index: project.index }}>
+          <div
+            className="rcmdCardImg"
+            style={{
+              backgroundImage: `url(${project.imageUrl})`,
+              width: "100%",
+              height: "120px",
+              backgroundSize: "cover",
+              backgroundPosition: "center"
+            }}
+          ></div>
+        </Link>
+        <div className="rcmdCardDetails">
+          <div className="rcmdCardHeading" style={{ minHeight: "40px" }}>
+            <Link to="/project" state={{ index: project.index }}>
+              {project.projectName}
+            </Link>
           </div>
+          <div className="rcmdCardFundedPercentage">
+            {((project.amountRaised / project.fundingGoal) * 100).toFixed(2) + "% Funded"}
+          </div>
+          <div className="rcmdCardAuthor">{"By " + project.creatorName}</div>
         </div>
-      );
-    });
+      </div>
+    ));
+  };
+
+  const handleNext = () => {
+    setCurrentFeaturedIndex((prevIndex) => 
+      prevIndex === featuredRcmd.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const handlePrevious = () => {
+    setCurrentFeaturedIndex((prevIndex) => 
+      prevIndex === 0 ? featuredRcmd.length - 1 : prevIndex - 1
+    );
   };
 
   useEffect(() => {
@@ -97,11 +125,9 @@ export default function HomeComponent(props) {
 
   return (
     <>
-      <CategoryComponent isHome={true} />
-      {/* siteStats */}
       <div className="siteStats">
         <div className="tagLine">
-          Creative work shows us what’s possible.
+          Creative work shows us what's possible.
           <br></br>
           Help fund it here.
         </div>
@@ -127,44 +153,43 @@ export default function HomeComponent(props) {
           <div className="suggLeftContainer">
             <div className="featuredCard">
               <div className="featuredHeading">FEATURED PROJECT</div>
-              <Link to="/project" state={{ index: featuredRcmd[0].index }}>
+              <div className="featuredNavigation">
+                <button className="navButton prevButton" onClick={handlePrevious}>&lt; Prev</button>
+                <span className="pageIndicator">{currentFeaturedIndex + 1}/{featuredRcmd.length}</span>
+                <button className="navButton nextButton" onClick={handleNext}>Next &gt;</button>
+              </div>
+              <Link to="/project" state={{ index: featuredRcmd[currentFeaturedIndex]?.index }}>
                 <div
                   className="featuredCardProjectImg"
                   style={{
-                    backgroundImage: featuredRcmd[0].cid
-                      ? `url(${"https://" + featuredRcmd[0].cid})`
-                      : dummyPic,
+                    backgroundImage: `url(${featuredRcmd[currentFeaturedIndex]?.imageUrl})`,
+                    height: "240px",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center"
                   }}
                 ></div>
               </Link>
-              <div className="featuredProjectHeading">
-                <Link to="/project" state={{ index: featuredRcmd[0].index }}>
-                  {featuredRcmd[0].projectName}
+              <div className="featuredProjectHeading" style={{ minHeight: "30px" }}>
+                <Link to="/project" state={{ index: featuredRcmd[currentFeaturedIndex]?.index }}>
+                  {featuredRcmd[currentFeaturedIndex]?.projectName}
                 </Link>
               </div>
-              <div className="featuredProjectDescription">
-                {featuredRcmd[0].projectDescription}
+              <div className="featuredProjectDescription" style={{ minHeight: "80px" }}>
+                {featuredRcmd[currentFeaturedIndex]?.projectDescription}
               </div>
-              <div className="featuredProjectAuthor">
-                {"By " + featuredRcmd[0].creatorName}
-              </div>
+              <div className="featuredProjectAuthor">{"By " + featuredRcmd[currentFeaturedIndex]?.creatorName}</div>
             </div>
           </div>
           <div className="suggRightContainer">
             <div className="recommendationList">
               <div className="recommendationHeading">RECOMMENDED FOR YOU</div>
-              {renderRecommendations(featuredRcmd.slice(1, 4))}
+              {renderRecommendations(featuredRcmd.filter((_, index) => index !== currentFeaturedIndex).slice(0, 3))}
             </div>
           </div>
         </div>
       ) : (
         <div className="noProjects">No projects found</div>
       )}
-      <ScrollShowbarComponent
-        recentUploads={recentUploads}
-        heading={"RECENT UPLOADS"}
-        emptyMessage={"No recent uploads"}
-      />
     </>
   );
 }
