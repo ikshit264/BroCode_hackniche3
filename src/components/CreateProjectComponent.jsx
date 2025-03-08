@@ -7,7 +7,7 @@ function CreateProjectComponent(props) {
     projectCategory: "",
     projectDescription: "",
     creatorName: "",
-    refundPolicy: "",
+    refundPolicy: "refundable", // Default refund policy set to refundable
     social: "",
     fundingGoal: 0,
     duration: 1,
@@ -17,7 +17,7 @@ function CreateProjectComponent(props) {
 
   const [inputImage, setInputImage] = useState(null);
 
-  // set the form input state if input changes
+  // Set the form input state if input changes
   function handleChange(e) {
     const { name, value } = e.target;
     setFormInput({
@@ -26,12 +26,12 @@ function CreateProjectComponent(props) {
     });
   }
 
-  // read the input image file
+  // Read the input image file
   async function handleImageChange(e) {
     setInputImage(e.target.files[0]);
   }
 
-  // submit the form input data to smart contract
+  // Submit the form input data to smart contract
   async function submitProjectData(e) {
     e.preventDefault();
     
@@ -55,22 +55,22 @@ function CreateProjectComponent(props) {
     }
 
     // Convert funding goal and duration to numbers
-    const fundingGoal = parseFloat(formInput.fundingGoal);
-    const duration = parseFloat(formInput.duration);
+    const fundingGoal = parseFloat(formInput.fundingGoal) * 10**18; // Convert to wei (1e18)
+    const duration = parseFloat(formInput.duration) * 60; // Convert to seconds
 
     // Get category code
     const categoryCode = {
-      "design": 0,
+      "designandtech": 0,
       "film": 1,
       "arts": 2,
       "games": 3,
-    }[formInput.projectCategory] || 0;
+    }[formInput.projectCategory.toLowerCase()] || 0;
 
     // Get refund policy code
     const refundPolicyCode = {
       "refundable": 0,
       "non-refundable": 1,
-    }[formInput.refundPolicy] || 0;
+    }[formInput.refundPolicy.toLowerCase()] || 0;
 
     // Call contract method
     try {
@@ -133,7 +133,7 @@ function CreateProjectComponent(props) {
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
               />
@@ -150,31 +150,14 @@ function CreateProjectComponent(props) {
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
               />
             </div>
 
             <div className="form-group" style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Refund Policy</label>
-              <input
-                type="text"
-                name="refundPolicy"
-                onChange={handleChange}
-                required
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  borderRadius: "5px",
-                  border: "none",
-                  backgroundColor: "rgba(255, 255, 255, 0.7)"
-                }}
-              />
-            </div>
-
-            <div className="form-group" style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Funding Goal</label>
+              <label style={{ display: "block", marginBottom: "5px" }}>Funding Goal (in ETH)</label>
               <input
                 type="number"
                 name="fundingGoal"
@@ -185,7 +168,7 @@ function CreateProjectComponent(props) {
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
               />
@@ -202,7 +185,7 @@ function CreateProjectComponent(props) {
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
               />
@@ -213,19 +196,24 @@ function CreateProjectComponent(props) {
           <div className="form-right">
             <div className="form-group" style={{ marginBottom: "15px" }}>
               <label style={{ display: "block", marginBottom: "5px" }}>Project Category</label>
-              <input
-                type="text"
+              <select
                 name="projectCategory"
                 onChange={handleChange}
+                value={formInput.projectCategory}
                 required
                 style={{
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
-              />
+              >
+                <option value="designandtech">DESIGNANDTECH</option>
+                <option value="film">FILM</option>
+                <option value="arts">ARTS</option>
+                <option value="games">GAMES</option>
+              </select>
             </div>
 
             <div className="form-group" style={{ marginBottom: "15px" }}>
@@ -239,30 +227,37 @@ function CreateProjectComponent(props) {
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
               />
             </div>
 
             <div className="form-group" style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Social</label>
-              <input
-                type="text"
-                name="social"
-                onChange={handleChange}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  borderRadius: "5px",
-                  border: "none",
-                  backgroundColor: "rgba(255, 255, 255, 0.7)"
-                }}
-              />
+              <label style={{ display: "block", marginBottom: "5px" }}>Refund Policy</label>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <label style={{ marginRight: "10px" }}>Refundable</label>
+                <input
+                  type="radio"
+                  name="refundPolicy"
+                  value="refundable"
+                  onChange={handleChange}
+                  checked={formInput.refundPolicy === "refundable"}
+                  style={{ marginRight: "10px" }}
+                />
+                <label style={{ marginRight: "10px" }}>Non-Refundable</label>
+                <input
+                  type="radio"
+                  name="refundPolicy"
+                  value="non-refundable"
+                  onChange={handleChange}
+                  checked={formInput.refundPolicy === "non-refundable"}
+                />
+              </div>
             </div>
 
             <div className="form-group" style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Duration</label>
+              <label style={{ display: "block", marginBottom: "5px" }}>Duration (in days)</label>
               <input
                 type="number"
                 name="duration"
@@ -273,7 +268,7 @@ function CreateProjectComponent(props) {
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
               />
@@ -289,7 +284,7 @@ function CreateProjectComponent(props) {
                   width: "100%",
                   padding: "10px",
                   borderRadius: "5px",
-                  border: "none",
+                  border: "2px solid #ddd", // Added border
                   backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
               />
@@ -315,38 +310,6 @@ function CreateProjectComponent(props) {
           </button>
         </div>
       </form>
-
-      {/* Background images */}
-      <div className="background-images" style={{
-        position: "absolute",
-        bottom: "0",
-        left: "0",
-        width: "100%",
-        pointerEvents: "none",
-        zIndex: "0"
-      }}>
-        <div className="towers" style={{
-          position: "absolute",
-          bottom: "0",
-          left: "20px",
-          height: "200px"
-        }}>
-          {/* This would be replaced with an actual image in production */}
-          <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.5)" }}>
-            {/* Twin towers silhouette would be here */}
-          </div>
-        </div>
-        <div className="airplane" style={{
-          position: "absolute",
-          bottom: "80px",
-          right: "20px",
-          transform: "rotate(-10deg)",
-          fontSize: "10px",
-          color: "rgba(255,255,255,0.5)"
-        }}>
-          {/* Airplane silhouette would be here */}
-        </div>
-      </div>
     </div>
   );
 }
