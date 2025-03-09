@@ -1,63 +1,81 @@
-import { useEffect, useState } from "react"
-import { motion } from "framer-motion"
-import styles from "./MasonryGrid.module.css"
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import styles from "./MasonryGrid.module.css";
+import { Link } from "react-router-dom";
 
-export default function MasonryGrid({ cards }) {
-  const [isLoaded, setIsLoaded] = useState(false)
+export default function MasonryGrid({ projects }) {
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    setIsLoaded(true)
-  }, [])
+    setIsLoaded(true);
+  }, []);
 
   // Function to truncate text
   const truncateText = (text, maxLength) => {
-    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text
-  }
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
+  };
 
-  // Limit to 4 cards and apply custom heights
-  const modifiedCards = cards.slice(0, 4).map((card, index) => {
-    const isSmall = index === 0 || index === 3
+  // Limit to 4 projects and apply custom heights
+  const modifiedProjects = projects.slice(0, 4).map((project, index) => {
+    const isSmall = index === 0 || index === 3;
     return {
-      ...card,
+      ...project,
       height: isSmall ? styles.h64 : styles.h80, // Smaller for first & last
-      truncatedDescription: truncateText(card.description, isSmall ? 200 : 350),
-    }
-  })
+      truncatedDescription: truncateText(project.description, isSmall ? 200 : 350),
+    };
+  });
 
   return (
     <div className={styles.container}>
       <div className={styles.grid}>
-        {modifiedCards.map((card, index) => (
-          <motion.div
-            key={card.id}
-            initial={{ height: 0, opacity: 0 }}
-            animate={isLoaded ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
-            transition={{
-              duration: 0.5,
-              delay: index * 0.2,
-              ease: "easeOut",
+        {modifiedProjects.map((project, index) => (
+          <Link
+            key={index}
+            to={{
+              pathname: "/project",
             }}
-            className={styles.cardWrapper}
+            state={{ project }} // Pass project details as state
+            className="project-card"
           >
-            <div className="relative">
-              {/* Background rectangle (offset to top-right) */}
-              <div className={styles.backgroundRectangle}></div>
+            <motion.div
+              key={project.id}
+              initial={{ height: 0, opacity: 0 }}
+              animate={
+                isLoaded
+                  ? { height: "auto", opacity: 1 }
+                  : { height: 0, opacity: 0 }
+              }
+              transition={{
+                duration: 0.5,
+                delay: index * 0.2,
+                ease: "easeOut",
+              }}
+              className={styles.cardWrapper}
+            >
+              <div className="relative">
+                {/* Background rectangle (offset to top-right) */}
+                <div className={styles.backgroundRectangle}></div>
 
-              {/* Main card with border */}
-              <div className={`${styles.card} ${card.height}`}>
-                <div className="h-full flex flex-col">
-                  <h3 className={styles.title}>{card.title}</h3>
-                  <span className={styles.tag}>{card.tag}</span>
-                  <p className={styles.description}>{card.truncatedDescription}</p>
-                  <div className="mt-4">
-                    <button className={styles.button}>Learn More</button>
+                {/* Main project card with border */}
+                <div className={`${styles.card} ${project.height}`}>
+                  <div className="h-full flex flex-col">
+                    <h3 className={styles.title}>{project.title}</h3>
+                    <span className={styles.tag}>{project.tag}</span>
+                    <p className={styles.description}>
+                      {project.truncatedDescription}
+                    </p>
+                    <div className="mt-4">
+                      <button className={styles.button}>Learn More</button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </Link>
         ))}
       </div>
     </div>
-  )
+  );
 }

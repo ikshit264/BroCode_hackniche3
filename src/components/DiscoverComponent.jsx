@@ -23,15 +23,16 @@ export default function DiscoverComponent(props) {
     try {
       let res = await props.contract.getAllProjectsDetail().then((res) => {
         return res.map((project, index) => ({
+          id: index,
+          title: project.projectName,
+          description: project.projectDescription,
+          tag: project.creatorName,
+          image: project.cid ? `https://${project.cid}` : dummyPic,
           amountRaised: project.amountRaised,
-          cid: project.cid,
-          creatorName: project.creatorName,
           fundingGoal: project.fundingGoal,
-          projectDescription: project.projectDescription,
-          projectName: project.projectName,
           totalContributors: project.totalContributors,
-          index,
           category: project.category,
+          cid: project.cid,
         }));
       });
 
@@ -82,16 +83,7 @@ export default function DiscoverComponent(props) {
         </button>
       </div>
       {paginatedProjects.length > 0 ? (
-        <MasonryGrid
-          cards={paginatedProjects.map((project) => ({
-            id: project.index,
-            title: project.projectName,
-            description: project.projectDescription,
-            tag: project.creatorName,
-            image: project.cid ? `https://${project.cid}` : dummyPic,
-            height: "h-80",
-          }))}
-        />
+        <MasonryGrid projects={paginatedProjects} />
       ) : (
         <div className={styles.noProjects}>No projects found</div>
       )}
