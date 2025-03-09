@@ -12,7 +12,7 @@ import { useState } from "react";
 import { ethers } from "ethers";
 import { abi } from "./abi";
 
-const CONTRACT_ADDRESS = "0x358AA13c52544ECCEF6B0ADD0f801012ADAD5eE3";
+const CONTRACT_ADDRESS = "0xd9145CCE52D386f254917e481eB44e9943F39138";
 
 function App() {
   const [myContract, setMyContract] = useState(null);
